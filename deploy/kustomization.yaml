@@ -81,11 +81,3 @@ configMapGenerator:
     behavior: replace
     literals:
       - SAS_INGRESS_CERTIFICATE_SECRET_NAME=""
-#Does not work for now
-# generatorOptions:
-#   disableNameSuffixHash: true
-# secretGenerator:
-#   - name: sas-consul-config                                              
-#     behavior: merge
-#     files:
-#       - SITEDEFAULT_CONF=site-config/sitedefault.yaml

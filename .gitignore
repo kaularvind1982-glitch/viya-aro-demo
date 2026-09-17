@@ -1,0 +1,16 @@
+config.ps1
+.terraform/
+.terraform.*
+*.log
+*.tfvars
+*.tfstate
+*.plan
+*.txt
+*.json
+deploy/sas-bases
+deploy/site.yaml
+ssh/*
+license/certs.zip
+license/license.jwt
+wip/*
+*.png

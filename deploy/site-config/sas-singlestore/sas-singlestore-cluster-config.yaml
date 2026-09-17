@@ -1,0 +1,61 @@
+apiVersion: builtin
+kind: PatchTransformer
+metadata:
+  name: ss
+patch: |-
+  - op: replace
+    path: /spec/redundancyLevel
+    value: 1
+  - op: replace
+    path: /spec/serviceSpec/type
+    value: LoadBalancer
+  - op: replace:
+    path: /spec/serviceSpec/loadBalancerSourceRanges
+    value: []
+  - op: replace
+    path: /spec/aggregatorSpec/count
+    value: 1
+  - op: replace
+    path: /spec/aggregatorSpec/height
+    value: 1
+  - op: replace
+    path: /spec/aggregatorSpec/storageGB
+    value: 128
+  - op: replace
+    path: /spec/leafSpec/count
+    value: 1
+  - op: replace
+    path: /spec/leafSpec/height
+    value: 1
+  - op: replace
+    path: /spec/leafSpec/storageGB
+    value: 128
+  - op: replace
+    path: /spec/leafSpec/storageClass
+    value: managed-csi
+  - op: replace
+    path: /spec/aggregatorSpec/storageClass
+    value: managed-csi
+target:
+  kind: MemsqlCluster
+---
+apiVersion: builtin
+kind: PatchTransformer
+metadata:
+  name: modify-singlestore-operator-args
+patch: |-
+  - op: replace
+    path: /spec/template/spec/containers/0/args
+    value:
+        - --merge-service-annotations
+        - --fs-group-id
+        - "5555"
+        - --overpack-factor
+        - ".15"
+        - --cluster-id
+        - sas-singlestore-cluster
+        - --memory-per-unit
+        - "64"
+target:
+  kind: Deployment
+  name: sas-singlestore-operator

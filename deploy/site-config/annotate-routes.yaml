@@ -1,0 +1,9 @@
+apiVersion: builtin
+kind: PatchTransformer
+metadata:
+  name: annotate-routes
+patch: |-
+  - op: remove
+    path: /metadata/annotations/cert-utils-operator.redhat-cop.io~1certs-from-secret
+target:
+  kind: Route

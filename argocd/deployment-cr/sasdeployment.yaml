@@ -1,0 +1,483 @@
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  creationTimestamp: null
+  name: sas-viya
+stringData:
+  cacert: |
+    -----BEGIN CERTIFICATE-----
+    -----END CERTIFICATE-----
+  cert: |
+    -----BEGIN RSA PRIVATE KEY-----
+    -----END RSA PRIVATE KEY-----
+    -----BEGIN CERTIFICATE-----
+    -----END CERTIFICATE-----
+  license: XXXXXXXXXXXXXXXXX
+---
+apiVersion: orchestration.sas.com/v1alpha1
+kind: SASDeployment
+metadata:
+  annotations:
+    operator.sas.com/checksum: ""
+  creationTimestamp: null
+  name: sas-viya
+spec:
+  caCertificate:
+    secretKeyRef:
+      key: cacert
+      name: sas-viya
+  cadenceName: lts
+  cadenceRelease: "20260713.1783933662413"
+  cadenceVersion: "2026.03"
+  clientCertificate:
+    secretKeyRef:
+      key: cert
+      name: sas-viya
+  license:
+    secretKeyRef:
+      key: license
+      name: sas-viya
+  repositoryWarehouse:
+    updatePolicy: Never
+  userContent:
+    files:
+      kustomization.yaml: "---\r\nnamespace: sasviya\r\nresources:\r\n  - sas-bases/base\r\n  - sas-bases/overlays/network/route.openshift.io/v1/route\r\n  - sas-bases/overlays/cas-server\r\n  # PostgreSQL\r\n  # Mandatory for both Internal/External PostgreSQL\r\n  - sas-bases/overlays/postgres/platform-postgres\r\n  # Internal PostgreSQL Provided by Crunchy Data\r\n  - sas-bases/overlays/crunchydata/postgres-operator\r\n  # CAS Auto Resources\r\n  - sas-bases/overlays/cas-server/auto-resources\r\n  # Intenal Opensearch\r\n  - sas-bases/overlays/internal-elasticsearch \r\n  # FS Group\r\n  - site-config/security/container-security/configmap-inputs.yaml\r\n  # OpenSSL certificate\r\n  #- sas-bases/examples/security/openssl-generated-ingress-certificate.yaml\r\n  # SingleStore\r\n  - sas-bases/overlays/sas-singlestore-osconfig/openshift\r\nconfigurations: \r\n  - sas-bases/overlays/required/kustomizeconfig.yaml\r\ntransformers:\r\n  - sas-bases/overlays/internal-elasticsearch/sysctl-transformer.yaml\r\n  - sas-bases/overlays/sas-programming-environment/refreshtoken\r\n  - sas-bases/overlays/required/transformers.yaml\r\n  - sas-bases/overlays/internal-elasticsearch/internal-elasticsearch-transformer.yaml\r\n  # OpenShift - Remove the Secure Computing (seccomp) profile\r\n  # As the default seccomp setting conflict withs the security that OpenShift already implements\r\n  # OpenShift then implicitly adds back the same default seccomp profile\r\n  - sas-bases/overlays/security/container-security/remove-seccomp-transformer.yaml\r\n  # OpenShift - Update fsGroup\r\n  - sas-bases/overlays/security/container-security/update-fsgroup.yaml\r\n  - sas-bases/overlays/cas-server/auto-resources/remove-resources.yaml\r\n  # NFS Compute\r\n  - site-config/sas-compute-server/configure/compute-server-add-nfs-mount.yaml\r\n  - site-config/sas-launcher/configure/launcher-nfs-mount.yaml\r\n  #CAS\r\n  - site-config/cas/configure/cas-add-nfs-mount.yaml\r\n  - site-config/cas/configure/cas-add-allowlist-paths.yaml\r\n  # Use HA Proxy certificates\r\n  - site-config/annotate-routes.yaml\r\n  #Disable WLO & remove launcher limits \r\n  - sas-bases/overlays/sas-workload-orchestrator/enable-disable/sas-workload-orchestrator-disable-patch-transformer.yaml\r\n  - sas-bases/overlays/sas-workload-orchestrator-server/enable-disable/sas-workload-orchestrator-server-disable-patch-transformer.yaml\r\n  - sas-bases/overlays/sas-launcher/launcher-disable-user-process-limits.yaml\r\n  # Internal PG replicas\r\n  - site-config/crunchy-replicas-transformer.yaml\r\n  # Rabbit MQ replicas\r\n  - site-config/rabbitmq-node-count.yaml\r\n  # SingleStore\r\n  - sas-bases/overlays/sas-singlestore-osconfig/openshift/daemonset-transformer.yaml\r\n  - site-config/sas-singlestore/sas-singlestore-cluster-config.yaml\r\ncomponents:\r\n  - sas-bases/components/sas-singlestore\r\n  - site-config/sas-singlestore\r\n  - sas-bases/components/crunchydata/internal-platform-postgres\r\n  - sas-bases/components/security/core/base/full-stack-tls\r\n  - sas-bases/components/security/network/route.openshift.io/route/full-stack-tls\r\n#generators:\r\n  #- site-config/security/customer-provided-ca-certificates.yaml\r\n  #- site-config/security/customer-provided-ingress-certificate.yaml      # Custom - Enable to include Customer provided certificate (Full TLS Mode)\r\n  #- site-config/security/customer-provided-merge-sas-certframe-configmap.yaml # Custom - Merges customer-provided configuration settings into the sas-certframe-user-config configmap (Full TLS Mode)\r\n# Custom SC\r\npatches:\r\n- path: site-config/storageclass.yaml\r\n  target:\r\n    kind: PersistentVolumeClaim\r\n    annotationSelector: sas.com/component-name in (sas-backup-job,sas-data-quality-services,sas-commonfiles,sas-cas-operator,sas-model-publish,sas-pyconfig)\r\nconfigMapGenerator:\r\n  - name: ingress-input\r\n    behavior: merge\r\n    literals:\r\n      - INGRESS_HOST=sasviya.apps.arkaul.eastus2.aroapp.io\r\n  - name: sas-shared-config\r\n    behavior: merge\r\n    literals:\r\n      - SAS_SERVICES_URL=https://sasviya.apps.arkaul.eastus2.aroapp.io\r\n  - name: sas-certframe-ingress-certificate-config\r\n    behavior: replace\r\n    literals:\r\n      - SAS_INGRESS_CERTIFICATE_SECRET_NAME=\"\"\r\n#Does not work for now\r\n# generatorOptions:\r\n#   disableNameSuffixHash: true\r\n# secretGenerator:\r\n#   - name: sas-consul-config                                              \r\n#     behavior: merge\r\n#     files:\r\n#       - SITEDEFAULT_CONF=site-config/sitedefault.yaml"
+      sas-bases: ""
+      site-config/annotate-routes.yaml: |-
+        apiVersion: builtin
+        kind: PatchTransformer
+        metadata:
+          name: annotate-routes
+        patch: |-
+          - op: remove
+            path: /metadata/annotations/cert-utils-operator.redhat-cop.io~1certs-from-secret
+        target:
+          kind: Route
+      site-config/cas/configure/cas-add-allowlist-paths.yaml: |
+        # This block of code is for appending paths to the file system path
+        # allowlist for the CAS server.  The {{ PATH-OR-VOLUME }} and
+        # {{ PATH-OR-VOLUME-2 }} values can be either the name of a
+        # Volume or a direct path.  These two values are provided
+        # as an example for appending multiple paths to the
+        # appendCASAllowlistPaths array.
+        # If the value is the name of a Volume, e.g., "test-data-volume",
+        # the CAS Operator will discover any Volume Mounts associated with
+        # that Volume and append those path(s) to the CAS allowlist.
+        # If the value is a path, e.g., "/data03/test-data", this
+        # path will appended to the CAS allowlist directly.
+        ---
+        apiVersion: builtin
+        kind: PatchTransformer
+        metadata:
+          name: cas-add-allowlist-paths
+        patch: |-
+          - op: add
+            path: /spec/appendCASAllowlistPaths/-
+            value:
+              /export
+        target:
+          group: viya.sas.com
+          kind: CASDeployment
+          # Uncomment this to apply to all CAS servers:
+          name: .*
+          # Uncomment this to apply to one particular named CAS server:
+          #name: {{ NAME-OF-SERVER }}
+          # Uncomment this to apply to the default CAS server:
+          #labelSelector: "sas.com/cas-server-default"
+          version: v1alpha1
+      site-config/cas/configure/cas-add-nfs-mount.yaml: |
+        # This block of code is for mounting NFS persistentVolumeClaims and Data
+        # Connectors for the CAS server.
+        ---
+        apiVersion: builtin
+        kind: PatchTransformer
+        metadata:
+          name: cas-add-nfs-mount
+        patch: |-
+            - op: add
+              path: /spec/controllerTemplate/spec/volumes/-
+              value:
+                name: sasviya-data
+                nfs:
+                  path: /export
+                  server: 10.0.4.4
+            - op: add
+              path: /spec/controllerTemplate/spec/containers/0/volumeMounts/-
+              value:
+                name: sasviya-data
+                mountPath: /export
+        target:
+          group: viya.sas.com
+          kind: CASDeployment
+          # Uncomment this to apply to all CAS servers:
+          name: .*
+          # Uncomment this to apply to one particular named CAS server:
+          #name: {{ NAME-OF-SERVER }}
+          # Uncomment this to apply to the default CAS server:
+          #labelSelector: "sas.com/cas-server-default"
+          version: v1alpha1
+      site-config/cas/configure/cas-server-scc-host-launch.yaml: |-
+        allowHostDirVolumePlugin: true
+        allowHostIPC: false
+        allowHostNetwork: false
+        allowHostPID: false
+        allowHostPorts: false
+        allowPrivilegeEscalation: true
+        allowPrivilegedContainer: false
+        allowedCapabilities:
+        - SETUID
+        - SETGID
+        - CHOWN
+        - DAC_OVERRIDE
+        - FOWNER
+        - KILL
+        - AUDIT_WRITE
+        apiVersion: security.openshift.io/v1
+        defaultAddCapabilities: []
+        fsGroup:
+          ranges:
+          - max: 1001
+            min: 1001
+          type: MustRunAs
+        groups:
+        kind: SecurityContextConstraints
+        metadata:
+          annotations:
+            kubernetes.io/description: scc for sas-cas-server service account
+          name: sas-cas-server-host
+        priority: 0
+        readOnlyRootFilesystem: false
+        requiredDropCapabilities:
+        - MKNOD
+        runAsUser:
+          type: MustRunAs
+          uid: 1001
+        seLinuxContext:
+          type: MustRunAs
+        seccompProfiles:
+        - runtime/default
+        supplementalGroups:
+          type: RunAsAny
+        users:
+        volumes:
+        - configMap
+        - downwardAPI
+        - emptyDir
+        - persistentVolumeClaim
+        - projected
+        - secret
+        - nfs
+        - hostPath
+      site-config/cas/configure/cas-server-scc-sssd.yaml: |-
+        allowHostDirVolumePlugin: true
+        allowHostIPC: false
+        allowHostNetwork: false
+        allowHostPID: false
+        allowHostPorts: false
+        allowPrivilegeEscalation: true
+        allowPrivilegedContainer: false
+        allowedCapabilities:
+        - SETUID
+        - SETGID
+        - CHOWN
+        - DAC_OVERRIDE
+        - FOWNER
+        - KILL
+        - AUDIT_WRITE
+        apiVersion: security.openshift.io/v1
+        defaultAddCapabilities: []
+        fsGroup:
+          type: RunAsAny
+        groups:
+        kind: SecurityContextConstraints
+        metadata:
+          annotations:
+            kubernetes.io/description: scc for sas-cas-server service account with sssd enabled
+          name: sas-cas-server-sssd
+        priority: 0
+        readOnlyRootFilesystem: false
+        requiredDropCapabilities:
+        - MKNOD
+        runAsUser:
+          type: RunAsAny
+        seLinuxContext:
+          type: RunAsAny
+        seccompProfiles:
+        - runtime/default
+        supplementalGroups:
+          type: RunAsAny
+        users:
+        volumes:
+        - configMap
+        - downwardAPI
+        - emptyDir
+        - persistentVolumeClaim
+        - projected
+        - secret
+        - nfs
+        - hostPath
+      site-config/cas/configure/cas-server-scc.yaml: |-
+        allowHostDirVolumePlugin: true
+        allowHostIPC: false
+        allowHostNetwork: false
+        allowHostPID: false
+        allowHostPorts: false
+        allowPrivilegeEscalation: false
+        allowPrivilegedContainer: false
+        apiVersion: security.openshift.io/v1
+        defaultAddCapabilities: []
+        fsGroup:
+          ranges:
+          - max: 1001
+            min: 1001
+          type: MustRunAs
+        groups:
+        kind: SecurityContextConstraints
+        metadata:
+          annotations:
+            kubernetes.io/description: scc for sas-cas-server service account
+          name: sas-cas-server
+        priority: 0
+        readOnlyRootFilesystem: false
+        requiredDropCapabilities:
+        - KILL
+        - MKNOD
+        runAsUser:
+          type: MustRunAs
+          uid: 1001
+        seLinuxContext:
+          type: MustRunAs
+        seccompProfiles:
+        - runtime/default
+        supplementalGroups:
+          type: RunAsAny
+        users:
+        volumes:
+        - configMap
+        - downwardAPI
+        - emptyDir
+        - persistentVolumeClaim
+        - projected
+        - secret
+        - nfs
+        - hostPath
+      site-config/configure-elasticsearch/sas-opendistro-scc.yaml: |-
+        allowHostDirVolumePlugin: false
+        allowHostIPC: false
+        allowHostNetwork: false
+        allowHostPID: false
+        allowHostPorts: false
+        allowPrivilegeEscalation: true
+        allowPrivilegedContainer: true
+        allowedCapabilities: []
+        apiVersion: security.openshift.io/v1
+        defaultAddCapabilities: []
+        fsGroup:
+          type: RunAsAny
+        groups:
+        kind: SecurityContextConstraints
+        metadata:
+          annotations:
+            kubernetes.io/description: Open Distro for Elasticsearch SCC
+          name: sas-opendistro
+        priority: 0
+        readOnlyRootFilesystem: true
+        requiredDropCapabilities:
+        - ALL
+        runAsUser:
+          type: RunAsAny
+          uid: 1000
+        seLinuxContext:
+          type: RunAsAny
+        supplementalGroups:
+          type: RunAsAny
+        users:
+        volumes:
+        - configMap
+        - downwardAPI
+        - emptyDir
+        - persistentVolumeClaim
+        - projected
+        - secret
+      site-config/crunchy-replicas-transformer.yaml: |
+        # Replace all instances of the variable {{ REPLICAS-COUNT }}, including the braces,
+        # with the number of PostgreSQL replicas you would like to have.
+        #
+        # Note: this is the total count of PostgreSQL nodes you will have, not just the nodes
+        # acting as "replicas" in a high-availability configuration. For example, using the
+        # value 3 will result in 3 total PostgreSQL nodes.
+
+        apiVersion: builtin
+        kind: PatchTransformer
+        metadata:
+          name: crunchy-replicas-transformer
+        patch: |-
+          - op: replace
+            path: /spec/instances/0/replicas
+            value: 1
+        target:
+          group: postgres-operator.crunchydata.com
+          kind: PostgresCluster
+          name: .*
+          version: v1beta1
+      site-config/rabbitmq-node-count.yaml: |-
+        # This block of code is for specifying the number of nodes in the RabbitMQ
+        # cluster. The default value is 3. SAS recommends an odd number such as 1,3, or 5.
+        ---
+        apiVersion: builtin
+        kind: PatchTransformer
+        metadata:
+          name: rabbitmq-node-count
+        patch: |-
+            - op: replace
+              path: /spec/replicas
+              value: 1
+        target:
+          group: apps
+          kind: StatefulSet
+          name: sas-rabbitmq-server
+          version: v1
+      site-config/sas-compute-server/configure/compute-server-add-nfs-mount.yaml: |-
+        # This block of code is for mounting NFS persistentVolumeClaims
+        # to a compute session
+        ---
+        apiVersion: builtin
+        kind: PatchTransformer
+        metadata:
+          name: compute-server-add-nfs-mount
+        patch: |-
+          - op: add
+            path: /template/spec/volumes/-
+            value:
+              name: sasviya-data
+              nfs:
+                path: /export
+                server: 10.0.4.4
+          - op: add
+            path: /template/spec/containers/0/volumeMounts/-
+            value:
+              name: sasviya-data
+              mountPath: /export
+        target:
+          kind: PodTemplate
+          version: v1
+          labelSelector: sas.com/template-intent=sas-launcher
+      site-config/sas-launcher/configure/launcher-nfs-mount.yaml: |-
+        ###################################################################################
+        # Kustomize patch configuration to change the add the launcher.sas.com/nfs-server
+        # PodTemplate annotation. This allows you to configure Viya with the location of
+        # the NFS server hosting a user's home directories at deployment time. The path
+        # is determined by the identities service.
+        # See README.md for more information.
+        ###############################################################################
+        ---
+        apiVersion: builtin
+        kind: PatchTransformer
+        metadata:
+          name: sas-launcher-nfs-mount
+        patch: |-
+          - op: add
+            path: /metadata/annotations/launcher.sas.com~1nfs-server
+            value: 10.0.4.4
+        target:
+          kind: PodTemplate
+          labelSelector: sas.com/template-intent=sas-launcher
+      site-config/sas-singlestore/kustomization.yaml: |-
+        apiVersion: kustomize.config.k8s.io/v1alpha1
+        kind: Component
+
+        generators:
+          - sas-singlestore-secret.yaml
+      site-config/sas-singlestore/sas-singlestore-cluster-config.yaml: |-
+        apiVersion: builtin
+        kind: PatchTransformer
+        metadata:
+          name: ss
+        patch: |-
+          - op: replace
+            path: /spec/redundancyLevel
+            value: 1
+          - op: replace
+            path: /spec/serviceSpec/type
+            value: LoadBalancer
+          - op: replace:
+            path: /spec/serviceSpec/loadBalancerSourceRanges
+            value: []
+          - op: replace
+            path: /spec/aggregatorSpec/count
+            value: 1
+          - op: replace
+            path: /spec/aggregatorSpec/height
+            value: 1
+          - op: replace
+            path: /spec/aggregatorSpec/storageGB
+            value: 128
+          - op: replace
+            path: /spec/leafSpec/count
+            value: 1
+          - op: replace
+            path: /spec/leafSpec/height
+            value: 1
+          - op: replace
+            path: /spec/leafSpec/storageGB
+            value: 128
+          - op: replace
+            path: /spec/leafSpec/storageClass
+            value: managed-csi
+          - op: replace
+            path: /spec/aggregatorSpec/storageClass
+            value: managed-csi
+        target:
+          kind: MemsqlCluster
+        ---
+        apiVersion: builtin
+        kind: PatchTransformer
+        metadata:
+          name: modify-singlestore-operator-args
+        patch: |-
+          - op: replace
+            path: /spec/template/spec/containers/0/args
+            value:
+                - --merge-service-annotations
+                - --fs-group-id
+                - "5555"
+                - --overpack-factor
+                - ".15"
+                - --cluster-id
+                - sas-singlestore-cluster
+                - --memory-per-unit
+                - "64"
+        target:
+          kind: Deployment
+          name: sas-singlestore-operator
+      site-config/sas-singlestore/sas-singlestore-secret.yaml: |-
+        ---
+        apiVersion: builtin
+        kind: SecretGenerator
+        metadata:
+          name: sas-singlestore-secret
+        behavior: merge
+        literals:
+        - license={{ LICENSE-CODE }}
+        - adminHashedPassword={{ HASHED-ADMIN-PASSWORD }}
+      site-config/security/container-security/configmap-inputs.yaml: |-
+        ## Example ConfigMap that defines the fsGroup value.
+        ##
+        ## The location that requires a user specified value is indicated by a capitalized and
+        ## name set off by curly braces and a space at each end. Replace this token with the
+        ## actual value. Replace the curly braces, interior spaces, and the variable name.
+        ## For instance, 1000760000 should be replaced by the desired fsgroup value.
+        ## Example:
+        ##   fsGroup: "1000700000"
+
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: security-container-security-inputs
+          labels:
+            sas.com/admin: none
+        data:
+          fsGroup: "1000760000"
+      site-config/sitedefault.yaml: "## This is a sitedefault.yaml file, matching the OpenLDAP deployed by the manifest.\n## You do not apply this file. Instead you will reference it in your manifest\n---\nconfig:\n  application:\n    sas.identities.providers.ldap.connection:\n      host: '172.30.222.182'\n      port: '389'\n      url: 'ldap://${sas.identities.providers.ldap.connection.host}:${sas.identities.providers.ldap.connection.port}'\n      userDN: 'cn=admin,dc=openldap,dc=com'\n      password: 'Password123'\n      anonymousBind: 'false'\n    sas.identities.providers.ldap.group:\n      accountId: 'cn'\n      baseDN: 'dc=openldap,dc=com'\n      createdDate: 'createTimestamp'\n      distinguishedName: 'none'\n      member: 'memberUid'\n      memberOf: 'none'\n      modifiedDate: 'modifyTimestamp'\n      objectClass: 'posixGroup'\n      objectFilter: '(objectClass=posixGroup)'\n      searchFilter: '${sas.identities.providers.ldap.group.accountId}={0}'\n    sas.identities.providers.ldap.user:\n      accountId: 'uid'\n      baseDN: 'dc=openldap,dc=com'\n      createdDate: 'createTimestamp'\n      distinguishedName: 'none'\n      memberOf: 'none'\n      modifiedDate: 'modifyTimestamp'\n      objectClass: 'posixAccount'\n      objectFilter: '(objectClass=posixAccount)'\n      searchFilter: '${sas.identities.providers.ldap.user.accountId}={0}'\n    sas.identities.providers.ldap:\n      primaryGroupMembershipsEnabled: 'true'\n    sas.identities:\n      administrator: 'sasadm'\n    sas.logon.initial:\n      user: sasboot\n      password: Password123\n    sas.studio:\n      fileNavigationRoot: 'CUSTOM'\n      fileNavigationCustomRootPath: '/'\n      showServerFiles: 'true'\n      #defaultTextEncoding: 'ISO-8859-1'\n    # sas.files:\n    #   blockedTypes: 'application/hta, application/octet-stream, application/x-bat, application/x-javascript, application/x-msdownload, application/x-ms-shortcut, application/x-vbscript, application/x-wscript, application/x-wsh, text/javascript, text/vbscript, text/scriptlet, application/x-msdos-program'  \n  sas.compute.server:\n          #LaunchTimeout: 300\n          autoexec_code:\n              contents: |\n                  LOCKDOWN ENABLE_AMS=PYTHON;\n                  LOCKDOWN ENABLE_AMS=PYTHON_EMBED;\n                  LOCKDOWN ENABLE_AMS=SOCKET;\n          configuration_options:\n              contents: |\n                  -NOSOURCE\n                  -COMPRESS=YES\n                  -NOFMTERR\n          startup_commands:\n              contents: |\n                  umask 002\n          #export TZ=\"Europe/Paris\"\n  batch:\n      sas.batch.server:\n          autoexec_code:\n              contents: |\n                  LOCKDOWN ENABLE_AMS=PYTHON;\n                  LOCKDOWN ENABLE_AMS=PYTHON_EMBED;\n                  LOCKDOWN ENABLE_AMS=SOCKET;\n          configuration_options:\n              contents: |\n                  -RLANG\n          # startup_commands:\n          #     contents: |\n          #         export TZ=\"Europe/Paris\"\n     "
+      site-config/storageclass.yaml: "kind: RWXStorageClass\r\nmetadata:\r\n  name: wildcard\r\nspec:\r\n  storageClassName: sas-nfs\r\n"

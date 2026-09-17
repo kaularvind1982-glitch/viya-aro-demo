@@ -1,0 +1,91 @@
+---
+namespace: sasviya
+resources:
+  - sas-bases/base
+  - sas-bases/overlays/network/route.openshift.io/v1/route
+  - sas-bases/overlays/cas-server
+  # PostgreSQL
+  # Mandatory for both Internal/External PostgreSQL
+  - sas-bases/overlays/postgres/platform-postgres
+  # Internal PostgreSQL Provided by Crunchy Data
+  - sas-bases/overlays/crunchydata/postgres-operator
+  # CAS Auto Resources
+  - sas-bases/overlays/cas-server/auto-resources
+  # Intenal Opensearch
+  - sas-bases/overlays/internal-elasticsearch 
+  # FS Group
+  - site-config/security/container-security/configmap-inputs.yaml
+  # OpenSSL certificate
+  #- sas-bases/examples/security/openssl-generated-ingress-certificate.yaml
+  # SingleStore
+  - sas-bases/overlays/sas-singlestore-osconfig/openshift
+configurations: 
+  - sas-bases/overlays/required/kustomizeconfig.yaml
+transformers:
+  - sas-bases/overlays/internal-elasticsearch/sysctl-transformer.yaml
+  - sas-bases/overlays/sas-programming-environment/refreshtoken
+  - sas-bases/overlays/required/transformers.yaml
+  - sas-bases/overlays/internal-elasticsearch/internal-elasticsearch-transformer.yaml
+  # OpenShift - Remove the Secure Computing (seccomp) profile
+  # As the default seccomp setting conflict withs the security that OpenShift already implements
+  # OpenShift then implicitly adds back the same default seccomp profile
+  - sas-bases/overlays/security/container-security/remove-seccomp-transformer.yaml
+  # OpenShift - Update fsGroup
+  - sas-bases/overlays/security/container-security/update-fsgroup.yaml
+  - sas-bases/overlays/cas-server/auto-resources/remove-resources.yaml
+  # NFS Compute
+  - site-config/sas-compute-server/configure/compute-server-add-nfs-mount.yaml
+  - site-config/sas-launcher/configure/launcher-nfs-mount.yaml
+  #CAS
+  - site-config/cas/configure/cas-add-nfs-mount.yaml
+  - site-config/cas/configure/cas-add-allowlist-paths.yaml
+  # Use HA Proxy certificates
+  - site-config/annotate-routes.yaml
+  #Disable WLO & remove launcher limits 
+  - sas-bases/overlays/sas-workload-orchestrator/enable-disable/sas-workload-orchestrator-disable-patch-transformer.yaml
+  - sas-bases/overlays/sas-workload-orchestrator-server/enable-disable/sas-workload-orchestrator-server-disable-patch-transformer.yaml
+  - sas-bases/overlays/sas-launcher/launcher-disable-user-process-limits.yaml
+  # Internal PG replicas
+  - site-config/crunchy-replicas-transformer.yaml
+  # Rabbit MQ replicas
+  - site-config/rabbitmq-node-count.yaml
+  # SingleStore
+  - sas-bases/overlays/sas-singlestore-osconfig/openshift/daemonset-transformer.yaml
+  - site-config/sas-singlestore/sas-singlestore-cluster-config.yaml
+components:
+  - sas-bases/components/sas-singlestore
+  - site-config/sas-singlestore
+  - sas-bases/components/crunchydata/internal-platform-postgres
+  - sas-bases/components/security/core/base/full-stack-tls
+  - sas-bases/components/security/network/route.openshift.io/route/full-stack-tls
+#generators:
+  #- site-config/security/customer-provided-ca-certificates.yaml
+  #- site-config/security/customer-provided-ingress-certificate.yaml      # Custom - Enable to include Customer provided certificate (Full TLS Mode)
+  #- site-config/security/customer-provided-merge-sas-certframe-configmap.yaml # Custom - Merges customer-provided configuration settings into the sas-certframe-user-config configmap (Full TLS Mode)
+# Custom SC
+patches:
+- path: site-config/storageclass.yaml
+  target:
+    kind: PersistentVolumeClaim
+    annotationSelector: sas.com/component-name in (sas-backup-job,sas-data-quality-services,sas-commonfiles,sas-cas-operator,sas-model-publish,sas-pyconfig)
+configMapGenerator:
+  - name: ingress-input
+    behavior: merge
+    literals:
+      - INGRESS_HOST=sasviya.apps.arkaul.eastus2.aroapp.io
+  - name: sas-shared-config
+    behavior: merge
+    literals:
+      - SAS_SERVICES_URL=https://sasviya.apps.arkaul.eastus2.aroapp.io
+  - name: sas-certframe-ingress-certificate-config
+    behavior: replace
+    literals:
+      - SAS_INGRESS_CERTIFICATE_SECRET_NAME=""
+#Does not work for now
+# generatorOptions:
+#   disableNameSuffixHash: true
+# secretGenerator:
+#   - name: sas-consul-config                                              
+#     behavior: merge
+#     files:
+#       - SITEDEFAULT_CONF=site-config/sitedefault.yaml

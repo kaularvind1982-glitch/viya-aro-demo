@@ -1,0 +1,77 @@
+## This is a sitedefault.yaml file, matching the OpenLDAP deployed by the manifest.
+## You do not apply this file. Instead you will reference it in your manifest
+---
+config:
+  application:
+    sas.identities.providers.ldap.connection:
+      host: '172.30.222.182'
+      port: '389'
+      url: 'ldap://${sas.identities.providers.ldap.connection.host}:${sas.identities.providers.ldap.connection.port}'
+      userDN: 'cn=admin,dc=openldap,dc=com'
+      password: 'Password123'
+      anonymousBind: 'false'
+    sas.identities.providers.ldap.group:
+      accountId: 'cn'
+      baseDN: 'dc=openldap,dc=com'
+      createdDate: 'createTimestamp'
+      distinguishedName: 'none'
+      member: 'memberUid'
+      memberOf: 'none'
+      modifiedDate: 'modifyTimestamp'
+      objectClass: 'posixGroup'
+      objectFilter: '(objectClass=posixGroup)'
+      searchFilter: '${sas.identities.providers.ldap.group.accountId}={0}'
+    sas.identities.providers.ldap.user:
+      accountId: 'uid'
+      baseDN: 'dc=openldap,dc=com'
+      createdDate: 'createTimestamp'
+      distinguishedName: 'none'
+      memberOf: 'none'
+      modifiedDate: 'modifyTimestamp'
+      objectClass: 'posixAccount'
+      objectFilter: '(objectClass=posixAccount)'
+      searchFilter: '${sas.identities.providers.ldap.user.accountId}={0}'
+    sas.identities.providers.ldap:
+      primaryGroupMembershipsEnabled: 'true'
+    sas.identities:
+      administrator: 'sasadm'
+    sas.logon.initial:
+      user: sasboot
+      password: Password123
+    sas.studio:
+      fileNavigationRoot: 'CUSTOM'
+      fileNavigationCustomRootPath: '/'
+      showServerFiles: 'true'
+      #defaultTextEncoding: 'ISO-8859-1'
+    # sas.files:
+    #   blockedTypes: 'application/hta, application/octet-stream, application/x-bat, application/x-javascript, application/x-msdownload, application/x-ms-shortcut, application/x-vbscript, application/x-wscript, application/x-wsh, text/javascript, text/vbscript, text/scriptlet, application/x-msdos-program'  
+  sas.compute.server:
+          #LaunchTimeout: 300
+          autoexec_code:
+              contents: |
+                  LOCKDOWN ENABLE_AMS=PYTHON;
+                  LOCKDOWN ENABLE_AMS=PYTHON_EMBED;
+                  LOCKDOWN ENABLE_AMS=SOCKET;
+          configuration_options:
+              contents: |
+                  -NOSOURCE
+                  -COMPRESS=YES
+                  -NOFMTERR
+          startup_commands:
+              contents: |
+                  umask 002
+          #export TZ="Europe/Paris"
+  batch:
+      sas.batch.server:
+          autoexec_code:
+              contents: |
+                  LOCKDOWN ENABLE_AMS=PYTHON;
+                  LOCKDOWN ENABLE_AMS=PYTHON_EMBED;
+                  LOCKDOWN ENABLE_AMS=SOCKET;
+          configuration_options:
+              contents: |
+                  -RLANG
+          # startup_commands:
+          #     contents: |
+          #         export TZ="Europe/Paris"
+     

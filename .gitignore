@@ -7,7 +7,6 @@ config.ps1
 *.plan
 *.txt
 *.json
-deploy/sas-bases
 deploy/site.yaml
 ssh/*
 license/certs.zip
